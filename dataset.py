@@ -32,8 +32,9 @@ class CrypoDataset(Dataset):
         for raw_path in self.raw_paths:
             # Read data from `raw_path`.
             self.data = pd.read_csv(raw_path)
-            node_feats = self._get_node_features(self.data)
-            data = Data(x=node_feats,y=self._buy_or_not(self._get_return_ratio(self.data)))
+            node_feats = self._get_node_features(self.data, i)
+            data = Data(x=node_feats,y=self._buy_or_not(self.data))
+            
 
             if self.pre_filter is not None and not self.pre_filter(data):
                 continue
@@ -51,18 +52,16 @@ class CrypoDataset(Dataset):
         data = torch.load(os.path.join(self.processed_dir, 'data_{}.pt'.format(idx)))
         return data
 
-    def _get_node_features(self, crypo):
+    def _get_node_features(self, crypo, node_no):
         all_node_feats = []
-        all_node_feats.append(crypo["Open"])
-        # feature of c_open / c_close / c_low
-        all_node_feats.append(crypo["Open"])
-        all_node_feats.append(crypo["High"])
-        all_node_feats.append(crypo["Low"])
-        all_node_feats.append(crypo["Close"])
-        all_node_feats.append(crypo["Volume"])
-        all_node_feats.append(self._get_return_ratio(self.data))
-        all_node_feats = np.asarray(all_node_feats)
-        return torch.tensor(all_node_feats, dtype=torch.float)
+        all_node_feats.append(node_no)
+        all_node_feats.extend(crypo["Open"])
+        all_node_feats.extend(crypo["High"])
+        all_node_feats.extend(crypo["Low"])
+        all_node_feats.extend(crypo["Close"])
+        all_node_feats.extend(crypo["Volume"])
+        all_node_feats.extend(self._get_return_ratio(self.data))
+        return torch.FloatTensor(all_node_feats).unsqueeze(1)
         
     
     def _get_return_ratio(self,crypo):
@@ -75,11 +74,9 @@ class CrypoDataset(Dataset):
                 return_ratio.append((data[i]-data[i-1])/data[i-1])
         return return_ratio
     
-    def _buy_or_not(self,returnRatio):
-        butOrNot=[]
-        for ratio in returnRatio:
-            butOrNot.append((ratio>=0)*1)
-        butOrNot = np.asarray(butOrNot)
-        return torch.tensor(butOrNot, dtype=torch.int64)
-
-data=CrypoDataset(root="Dataset/Crypto/")
+    def _buy_or_not(self,crypo):
+        butOrNot=0
+        data = np.array(crypo["Close"])
+        if(data[-1]>data[0]):
+            butOrNot=1
+        return torch.FloatTensor([butOrNot])
