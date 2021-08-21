@@ -6,11 +6,21 @@ from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
 from torch_geometric.nn import GATConv
 from dataset import CrypoDataset
-
+from torch_geometric.data import DataLoader
 dataset = CrypoDataset(root="Dataset/Crypto/")
 
 data = dataset[0]
-print(len(dataset))
+
+dataset = dataset.shuffle()
+train_dataset = dataset[:4]
+val_dataset = dataset[2:3]
+test_dataset = dataset[4:5]
+
+batch_size= 512
+train_loader = DataLoader(train_dataset, batch_size=batch_size)
+val_loader = DataLoader(val_dataset, batch_size=batch_size)
+test_loader = DataLoader(test_dataset, batch_size=batch_size)
+
 class Net(torch.nn.Module):
     def __init__(self, in_channels, out_channels):
         super(Net, self).__init__()
@@ -20,11 +30,11 @@ class Net(torch.nn.Module):
         self.conv2 = GATConv(8 * 8, out_channels, heads=1, concat=False,
                              dropout=0.6)
 
-    def forward(self, x, y):
+    def forward(self, x, edge_index):
         x = F.dropout(x, p=0.6, training=self.training)
-        x = F.elu(self.conv1(x, y))
+        x = F.elu(self.conv1(x, edge_index))
         x = F.dropout(x, p=0.6, training=self.training)
-        x = self.conv2(x, y)
+        x = self.conv2(x, edge_index)
         return F.log_softmax(x, dim=-1)
 
 device = torch.device('cpu')
@@ -38,7 +48,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
 def train(data):
     model.train()
     optimizer.zero_grad()
-    out = model(data.x, data.y)
+    out = model(data.x, data.edge_index)
     loss = F.nll_loss(out[data.train_mask], data.y[data.train_mask])
     loss.backward()
     optimizer.step()
@@ -47,7 +57,7 @@ def train(data):
 @torch.no_grad()
 def test(data):
     model.eval()
-    out, accs = model(data.x, data.y), []
+    out, accs = model(data.x, data.edge_index), []
     for _, mask in data('train_mask', 'val_mask', 'test_mask'):
         acc = float((out[mask].argmax(-1) == data.y[mask]).sum() / mask.sum())
         accs.append(acc)

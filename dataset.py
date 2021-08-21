@@ -33,7 +33,8 @@ class CrypoDataset(Dataset):
             # Read data from `raw_path`.
             self.data = pd.read_csv(raw_path)
             node_feats = self._get_node_features(self.data, i)
-            data = Data(x=node_feats,y=self._buy_or_not(self.data))
+            edge_index = torch.tensor([np.random.randint(5),np.random.randint(5)], dtype=torch.long)
+            data = Data(x=node_feats,edge_index=edge_index,y=self._buy_or_not(self.data))
             
 
             if self.pre_filter is not None and not self.pre_filter(data):
