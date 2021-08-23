@@ -33,6 +33,7 @@ class CrypoDataset(Dataset):
         for i in range(data_rows):
             date_time = 0
             all_node_feats=[]
+            label_y=[]
             for raw_path in self.raw_paths:
             # Read data from `raw_path`.
                 data_file = pd.read_csv(raw_path)
@@ -42,9 +43,11 @@ class CrypoDataset(Dataset):
                 if(daily_data.shape[0]>0):
                     node_feats = self._get_node_features(daily_data)
                     all_node_feats.append(node_feats)
+                    label_y.append(self._buy_or_not(data_file,date_time))
             edge_index = self.generateEdge(len(all_node_feats))
             all_node_feats = torch.tensor(all_node_feats, dtype=torch.float)
-            data = Data(x=all_node_feats,edge_index=edge_index,y=self._buy_or_not(data_file,date_time))
+            label_y = torch.tensor(label_y, dtype=torch.float)
+            data = Data(x=all_node_feats,edge_index=edge_index,y=label_y)
             
             if self.pre_filter is not None and not self.pre_filter(data):
                 continue
@@ -89,10 +92,10 @@ class CrypoDataset(Dataset):
             index = data_file.loc[data_file['Date'] == date_time].index[0]
             if(index < data_file.shape[0]-1 and data[index+1]>data[index]):
                 butOrNot=1
-        return torch.tensor(butOrNot, dtype=torch.float)
+        return butOrNot
     def generateEdge(self,n):
         edges = []
         for i in range(n):
             for j in range(n):
                 edges.append([i,j])
-        return torch.tensor(edges, dtype=torch.long)
+        return torch.tensor(np.transpose(edges), dtype=torch.long)
